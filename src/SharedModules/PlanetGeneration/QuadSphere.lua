@@ -5,6 +5,14 @@ QuadSphere.__index = QuadSphere
 local triangleModule = require(game.ReplicatedStorage.SharedModules.Triangles)
 local SphereFace = require(game.ReplicatedStorage.SharedModules.PlanetGeneration.SphereFace)
 
+---- < Metatables > ----
+local vertFaceMapMetatable = {
+    __index = function(t, key)
+        t[key] = {}
+        return t[key]
+    end
+}
+
 --[[
 Creates a new quadsphere
 ]]
@@ -19,15 +27,18 @@ function QuadSphere.new(cframe, radius)
     
     self.verticeList = {}
     self.faceList = {}
+    self.verticeToFaceMap = setmetatable({}, vertFaceMapMetatable)
 
     local start = tick()
     CalculateCubeVertices(self)
-    self:Subdivide(2)
+    self:Subdivide(7)
+    self:MapVerticesToFaces()
     self:Spherify()
     local cend = tick()
 
-    print("Face Count:", #self.faceList)
 
+    print("Face Count of Vertice:", #self.verticeToFaceMap[27])
+    print("Face Count:", #self.faceList)
     print("Vertice Calculations took:", cend-start)
 
     return self
@@ -49,7 +60,7 @@ function CalculateCubeVertices(self)
     local backBottomLeft = (self.cframe *CFrame.new(-self.radius, -self.radius, self.radius)).Position
     local backBottomRight = (self.cframe *CFrame.new(self.radius, -self.radius, self.radius)).Position
 
-    
+
     table.insert(self.verticeList, frontTopLeft)--1
     table.insert(self.verticeList, frontTopRight)--2
     table.insert(self.verticeList, backTopLeft)--3
@@ -89,6 +100,18 @@ function QuadSphere:Subdivide(iterations)
 end
 
 --[[
+    Fills a hashmap indicating which faces each vertice is apart of
+]]
+function QuadSphere:MapVerticesToFaces()
+    for id, face in pairs(self.faceList) do
+        table.insert(self.verticeToFaceMap[face.topLeftVerticeId], id)
+        table.insert(self.verticeToFaceMap[face.topRightVerticeId], id)
+        table.insert(self.verticeToFaceMap[face.bottomLeftVerticeId], id)
+        table.insert(self.verticeToFaceMap[face.bottomRightVerticeId], id)
+    end
+end
+
+--[[
     Turns the cube into a sphere
 ]]
 function QuadSphere:Spherify()
@@ -109,17 +132,22 @@ function QuadSphere:RenderAllFaces()
     p.CFrame = self.cframe
     sphere.PrimaryPart = p
     p.Parent = sphere
-    sphere.Parent = workspace
+    
 
+    local timeStart = tick()
     for x, face in pairs(self.faceList) do
-        --[[if x%500 == 0 then
-            wait()
-        end]]
-        local verts = {self.verticeList[face.topLeftVerticeId], self.verticeList[face.topRightVerticeId], self.verticeList[face.bottomRightVerticeId], self.verticeList[face.bottomLeftVerticeId]}
+        local topLeft = self.verticeList[face.topLeftVerticeId]
+        local topRight = self.verticeList[face.topRightVerticeId]
+        local bottomRight = self.verticeList[face.bottomRightVerticeId]
+        local bottomLeft = self.verticeList[face.bottomLeftVerticeId]
 
-        local f = triangleModule.fillQuadrant(verts)
+        local f = triangleModule.fillQuadrant(topLeft, topRight, bottomRight, bottomLeft)
         f.Parent = sphere
     end
+    sphere.Parent = workspace
+    local timeEnd = tick()
+
+    print("Rendering took:", timeEnd-timeStart, "seconds")
 end
 
 
