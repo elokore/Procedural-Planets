@@ -3,7 +3,7 @@ QuadSphere.__index = QuadSphere
 
 ---- < Module Imports > ----
 local triangleModule = require(game.ReplicatedStorage.SharedModules.Triangles)
-local SphereFace = require(game.ReplicatedStorage.SharedModules.PlanetGeneration.SphereFace)
+local SphereFace = require(game.ReplicatedStorage.SharedModules.Generation1.SphereFace)
 local misc = require(game.ReplicatedStorage.SharedModules.Misc)
 
 ---- < Metatables > ----
@@ -179,9 +179,6 @@ function QuadSphere:RenderFacesNearPosition(position)
     local finishedRender = {}
 
     for _, faceID in pairs(self.verticeToFaceMap[verticeID]) do
-        --[[local face = self.faceList[faceID]
-        facesToRender[faceID] = face
-        table.insert(facesToCheck, face)]]
         --Make sure the face is not already in our render list
         local faceFromVert = self.faceList[faceID]
 
@@ -195,7 +192,7 @@ function QuadSphere:RenderFacesNearPosition(position)
                 facesToRender[faceID] = faceFromVert
                 table.insert(facesToCheck, faceFromVert)
             end
-        end  
+        end
     end
 
     local faceCheckStart = 1

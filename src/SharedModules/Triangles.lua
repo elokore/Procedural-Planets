@@ -71,7 +71,7 @@ function module.fillQuadrant(vert1, vert2, vert3, vert4, faceToReuse)
 	t3.Name = "Triangle3"
 	t4.Name = "Triangle4"
 
-	local color = BrickColor.random()
+	local color = BrickColor.Green()
 
 	t1.BrickColor = color
 	t2.BrickColor = color
