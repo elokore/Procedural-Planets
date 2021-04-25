@@ -4,6 +4,7 @@ local wedge = Instance.new("WedgePart");
 wedge.Anchored = true;
 wedge.TopSurface = Enum.SurfaceType.Smooth;
 wedge.BottomSurface = Enum.SurfaceType.Smooth;
+wedge.CanTouch = false
 
 
 

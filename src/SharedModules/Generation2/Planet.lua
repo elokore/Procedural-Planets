@@ -6,6 +6,7 @@ local Node = require(game.ReplicatedStorage.SharedModules.Generation2.Node)
 local QuadtreeManager = require(game.ReplicatedStorage.SharedModules.Generation2.QuadtreeManager)
 local triangles = require(game.ReplicatedStorage.SharedModules.Triangles)
 local NoiseFilter = require(game.ReplicatedStorage.SharedModules.Generation2.NoiseFilter)
+local RenderOperation = require(game.ReplicatedStorage.SharedModules.Generation2.RenderOperation)
 
 ---@class Planet
 function Planet.new(cframe, radius)
@@ -51,11 +52,8 @@ function Planet.new(cframe, radius)
     self.nextVerticeID = 1
 
     self.quadtree = self:GeneratePlanetCube()
-    self.quadtreeManager = QuadtreeManager.new(self.cframe, self.radius, self.quadtree)
 
     self.renderedNodes = {}
-    self.nodesToRender = {}
-    self.newlyRenderedNodes = {}
 
     self:LOD(Vector3.new(0, 2005, 0))
     --self:RenderAllFaces()
@@ -173,7 +171,6 @@ function Planet:RenderAllFaces()
         end
     end
 
-
     for _, coreNode in ipairs(self.quadtree) do
         renderNode(coreNode)
     end
@@ -183,15 +180,22 @@ end
     Checks if the node needs to be rendered and if needed,
     will add the node to the render list
 ]]
-function Planet:DetermineNodeRenderWorthy(node, nodePosition)
-    local existingNode = self.renderedNodes[nodePosition]
+function Planet:DetermineNodeRenderWorthy(node)
+    local nodeRendered = node.renderedFace
 
-    --Check if this node has already been renedered, if so then reuse it
-    if existingNode then
-        self.renderedNodes[nodePosition] = nil
-        self.newlyRenderedNodes[nodePosition] = node
+    --Check if this node has already been rendered, if so then reuse it
+    --[[if existingNode then
+        node.renderPosition = targetPosition
     else
-        self.nodesToRender[nodePosition] = node
+        --self.nodesToRender[nodePosition] = node
+        self.performanceQueue:AddNodeToRenderQueue(node)
+    end]]
+
+    if nodeRendered then
+        self.renderedNodes[node.nodePosition] = nil
+        self.currentRenderOperation:MarkNodeAsRendered(node)
+    else
+        self.currentRenderOperation:AddNodeToRenderList(node)
     end
 end
 
@@ -202,20 +206,18 @@ end
 ---@param viewCFrame CFrame
 ---@param targetPosition Vector3
 function Planet:CalculateNodeResolution(node, viewCFrame, targetPosition)
-    local i1, i2, i3, i4 = node:GetVerticeIDs()
-    local v1, v2, v3, v4 = self.vertices[i1], self.vertices[i2], self.vertices[i3], self.vertices[i4]
-
-    local nodePosition = (v1+v2+v3+v4)/4
+    local v1 = self.vertices[node.topLeftVerticeID]
+    local nodePosition = node.nodePosition--(v1+v2+v3+v4)/4
 
     --Dont subdivide past the limit
     if node.depth < self.maxSubdivisions then
         local nodePositionViewLocal = viewCFrame:PointToObjectSpace(nodePosition)
 
         --Dont do anything to this node if its not in view of the player
-        if nodePositionViewLocal.Z <= 0 or node.depth < 4 then
-            local halfWidthEstimate = (v1-nodePosition).Magnitude
+        if nodePositionViewLocal.Z <= 0 or node.depth < 2 then
+            local halfWidthEstimate = (v1-nodePosition).Magnitude--Very rough estimate of the width of the node
 
-            if (targetPosition - nodePosition).Magnitude <= halfWidthEstimate*20 then
+            if (targetPosition - nodePosition).Magnitude <= halfWidthEstimate*25 then
                 if not node:HasChildren() then
                     node:Subdivide()
                 end
@@ -225,11 +227,11 @@ function Planet:CalculateNodeResolution(node, viewCFrame, targetPosition)
                 self:CalculateNodeResolution(node.childNode3, viewCFrame, targetPosition)
                 self:CalculateNodeResolution(node.childNode4, viewCFrame, targetPosition)
             else
-                self:DetermineNodeRenderWorthy(node, nodePosition)
+                self:DetermineNodeRenderWorthy(node)
             end
         end
     else
-        self:DetermineNodeRenderWorthy(node, nodePosition)
+        self:DetermineNodeRenderWorthy(node)
     end
 end
 
@@ -239,42 +241,20 @@ end
 ]]
 ---@param position Vector3 --Position in global space
 function Planet:LOD(position)
-    local posDirection = (position - self.cframe.Position).Unit
-    local viewCFrame = CFrame.new(self.cframe.Position + posDirection * (self.radius - (self.radius*10)^0.5), self.cframe.Position + posDirection * self.radius)
+    if not self.currentRenderOperation or self.currentRenderOperation.completed then
+        self.currentRenderOperation = RenderOperation.new(self)
 
-    --Calculate the appropriate resolution of all the nodes
-    for _, node in pairs(self.quadtree) do
-        self:CalculateNodeResolution(node, viewCFrame, position)
-    end
+        local posDirection = (position - self.cframe.Position).Unit
+        local viewCFrame = CFrame.new(self.cframe.Position + posDirection * (self.radius - (self.radius*10)^0.5), self.cframe.Position + posDirection * self.radius)
 
-    --Render all the nodes in the list
-    for nodePosition, node in pairs(self.nodesToRender) do
-        local otherNodePosition, otherNode = next(self.renderedNodes)
-        local reusableFace
-
-        if otherNodePosition then
-            reusableFace = otherNode.renderedFace
-            otherNode.renderedFace = nil
-            self.renderedNodes[otherNodePosition] = nil
+        --Calculate the appropriate resolution of all the nodes
+        for _, node in pairs(self.quadtree) do
+            --self.performanceQueue:AddNodeToResolutionQueue(node, viewCFrame, position)
+            self:CalculateNodeResolution(node, viewCFrame, position)
         end
 
-        --working here
-        local newFace = node:RenderFace(reusableFace)
-        newFace.Parent = workspace.Planet
-        self.newlyRenderedNodes[nodePosition] = node
-        self.nodesToRender[nodePosition] = nil
+        self.currentRenderOperation:BeginOperation()
     end
-
-    --Delete any leftover rendered faces
-    for nodePosition, node in pairs(self.renderedNodes) do
-        node.renderedFace:Destroy()
-        node.renderedFace = nil
-
-        self.renderedNodes[nodePosition] = nil
-    end
-
-    self.renderedNodes = self.newlyRenderedNodes
-    self.newlyRenderedNodes = {}
 end
 
 return Planet

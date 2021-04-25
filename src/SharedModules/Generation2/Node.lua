@@ -124,8 +124,6 @@ function Node:Subdivide()
     local centerPosition = ((topLeftPosition + topRightPosition + bottomRightPosition + bottomLeftPosition)/4)
     centerPosition = centerPosition.Unit * (self.planet.radius + noiseFilter:EvaluateNoise(centerPosition.Unit * planet.radius))
 
-
-
     --Add vertices to the planet
     local topMiddleVerticeID = planet.positionToVerticeID[topMiddlePosition] or planet.nextVerticeID
     planet.vertices[topMiddleVerticeID] = topMiddlePosition
