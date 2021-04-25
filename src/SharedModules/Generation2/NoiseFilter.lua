@@ -22,7 +22,7 @@ end
 ---@param vector Vector3
 function NoiseFilter:EvaluateNoise(vector)
     vector = vector * self.roughness
-    local noiseValue = (1 - math.abs(math.noise(vector.X, vector.Y, vector.Z))) * self.scale
+    local noiseValue = (math.max(math.noise(vector.X, vector.Y, vector.Z), 0)) * self.scale
 
     return noiseValue
 end

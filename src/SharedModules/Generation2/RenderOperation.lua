@@ -13,6 +13,7 @@ local runService = game:GetService("RunService")
 function RenderOperation.new(planet)
     local self = setmetatable({}, RenderOperation)
 
+    self.renderListLength = 0
     self.nodesToRender = {}
     self.rendered = {}
 
@@ -29,7 +30,8 @@ end
 ]]
 ---@param node Node
 function RenderOperation:AddNodeToRenderList(node)
-    table.insert(self.nodesToRender, node)
+    self.nodesToRender[node.nodePosition] = node
+    self.renderListLength = self.renderListLength + 1
 end
 
 --[[
@@ -40,41 +42,82 @@ function RenderOperation:MarkNodeAsRendered(node)
 end
 
 --[[
+    Renders the next node in the render list
+    or a specific node, if specified in function parameters
+]]
+---@param optionalNode Node --A specific node to render, if nil then a random node from the "nodesToRender" list will be chosen
+function RenderOperation:RenderNode(optionalNode)
+    local nodePosition, node
+
+    if optionalNode then
+        node = optionalNode
+        nodePosition = optionalNode.nodePosition
+    else
+        nodePosition, node = next(self.nodesToRender)
+    end
+
+    if node then
+        --Find a face to reuse
+        local otherNodePosition, reusableNode = next(self.planet.renderedNodes)
+        local reusableFace
+
+        --If a reusable face was found then take it and use it to make the new face we need
+        if otherNodePosition then
+            self.planet.renderedNodes[otherNodePosition] = nil
+            reusableFace = reusableNode.renderedFace
+            reusableNode.renderedFace = nil
+        end
+
+
+        local newFace = node:RenderFace(reusableFace)
+        newFace.Parent = workspace.Planet
+
+        self.nodesToRender[nodePosition] = nil
+        self.rendered[node.nodePosition] = node
+
+        self.renderListLength = self.renderListLength - 1
+
+        if reusableNode then
+            --If the parent or children of the reusable node is supposed to be rendered then we need to render that node to stop flickering when the reusable node is moved
+            if reusableNode.parentNode and self.nodesToRender[reusableNode.parentNode.nodePosition] then
+                self:RenderNode(reusableNode.parentNode)
+            elseif reusableNode:HasChildren() then
+                if self.nodesToRender[reusableNode.childNode1.nodePosition] then
+                    self:RenderNode(reusableNode.childNode1)
+                end
+
+                if self.nodesToRender[reusableNode.childNode2.nodePosition] then
+                    self:RenderNode(reusableNode.childNode2)
+                end
+
+                if self.nodesToRender[reusableNode.childNode3.nodePosition] then
+                    self:RenderNode(reusableNode.childNode3)
+                end
+
+                if self.nodesToRender[reusableNode.childNode4.nodePosition] then
+                    self:RenderNode(reusableNode.childNode4)
+                end
+            end
+        end
+    end
+end
+
+--[[
     Starts rendering all the provided nodes
 ]]
 function RenderOperation:BeginOperation()
-    print("Faces to Render:", #self.nodesToRender)
-    local num = math.ceil(#self.nodesToRender/2)
+    print("Faces to Render:", self.renderListLength)
+    --local num = math.ceil(#self.nodesToRender/2)
 
     self.frameEvent = runService.Heartbeat:Connect(function(delta)
-        local nodeCountToRender = num--math.min(200, #self.nodesToRender)
+        local nodeCountToRender = math.min(50, self.renderListLength)
 
         --Render x amount of faces
         for x = 1, nodeCountToRender do
-            local nodeIndex = #self.nodesToRender
-            local node = self.nodesToRender[nodeIndex]
-
-            if node then
-                --Find a face to reuse
-                local otherNodePosition, reusableNode = next(self.planet.renderedNodes)
-                local reusableFace
-
-                --If a reusable face was found then take it and use it to make the new face we need
-                if otherNodePosition then
-                    self.planet.renderedNodes[otherNodePosition] = nil
-                    reusableFace = reusableNode.renderedFace
-                    reusableNode.renderedFace = nil
-                end
-
-                --local newFace = node:RenderFace(reusableFace)
-                --newFace.Parent = workspace.Planet
-
-                table.remove(self.nodesToRender, nodeIndex)
-                self.rendered[node.nodePosition] = node
-            end
+            self:RenderNode()
         end
 
-        if #self.nodesToRender <= 0 then
+        if self.renderListLength <= 0 then
             for key, node in pairs(self.planet.renderedNodes) do
                 node.renderedFace:Destroy()
                 node.renderedFace = nil

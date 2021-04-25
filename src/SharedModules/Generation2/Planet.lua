@@ -3,7 +3,6 @@ Planet.__index = Planet
 
 ---- < Module Imports > ----
 local Node = require(game.ReplicatedStorage.SharedModules.Generation2.Node)
-local QuadtreeManager = require(game.ReplicatedStorage.SharedModules.Generation2.QuadtreeManager)
 local triangles = require(game.ReplicatedStorage.SharedModules.Triangles)
 local NoiseFilter = require(game.ReplicatedStorage.SharedModules.Generation2.NoiseFilter)
 local RenderOperation = require(game.ReplicatedStorage.SharedModules.Generation2.RenderOperation)
@@ -25,27 +24,10 @@ function Planet.new(cframe, radius)
     self.noiseFilter.minimum = 0
     self.noiseFilter.roughness = 0.005
 
-    workspace.NoiseSettings.Roughness.Changed:Connect(function(v)
-        self.noiseFilter.roughness = v
-        self:RecalculateVertices()
-        self:RenderAllFaces()
-    end)
-
-    workspace.NoiseSettings.Scale.Changed:Connect(function(v)
-        self.noiseFilter.scale = v
-        self:RecalculateVertices()
-        self:RenderAllFaces()
-    end)
-
-    workspace.NoiseSettings.MinimumHeight.Changed:Connect(function(v)
-        self.noiseFilter.minimum = v
-        self:RecalculateVertices()
-        self:RenderAllFaces()
-    end)
-
     self.cframe = cframe
     self.radius = radius
-    self.maxSubdivisions = 8
+    self.maxSubLimit = 8
+    self.currentSubLimit = self.maxSubLimit
 
     self.vertices = setmetatable({}, verticeListMetatable)
     self.positionToVerticeID = {}
@@ -183,14 +165,6 @@ end
 function Planet:DetermineNodeRenderWorthy(node)
     local nodeRendered = node.renderedFace
 
-    --Check if this node has already been rendered, if so then reuse it
-    --[[if existingNode then
-        node.renderPosition = targetPosition
-    else
-        --self.nodesToRender[nodePosition] = node
-        self.performanceQueue:AddNodeToRenderQueue(node)
-    end]]
-
     if nodeRendered then
         self.renderedNodes[node.nodePosition] = nil
         self.currentRenderOperation:MarkNodeAsRendered(node)
@@ -210,14 +184,14 @@ function Planet:CalculateNodeResolution(node, viewCFrame, targetPosition)
     local nodePosition = node.nodePosition--(v1+v2+v3+v4)/4
 
     --Dont subdivide past the limit
-    if node.depth < self.maxSubdivisions then
+    if node.depth < self.currentSubLimit then
         local nodePositionViewLocal = viewCFrame:PointToObjectSpace(nodePosition)
 
         --Dont do anything to this node if its not in view of the player
         if nodePositionViewLocal.Z <= 0 or node.depth < 2 then
             local halfWidthEstimate = (v1-nodePosition).Magnitude--Very rough estimate of the width of the node
 
-            if (targetPosition - nodePosition).Magnitude <= halfWidthEstimate*25 then
+            if (targetPosition - nodePosition).Magnitude <= halfWidthEstimate*20 then
                 if not node:HasChildren() then
                     node:Subdivide()
                 end
@@ -245,11 +219,15 @@ function Planet:LOD(position)
         self.currentRenderOperation = RenderOperation.new(self)
 
         local posDirection = (position - self.cframe.Position).Unit
-        local viewCFrame = CFrame.new(self.cframe.Position + posDirection * (self.radius - (self.radius*10)^0.5), self.cframe.Position + posDirection * self.radius)
+        local distanceFromSurface = (position - self.cframe.Position).Magnitude - self.radius
+        local viewCFrame = CFrame.new(self.cframe.Position + posDirection * (self.radius - ((self.radius*25)^0.5 + (distanceFromSurface*100)^0.5)), self.cframe.Position + posDirection * self.radius)
+
+        local subLimit = math.min(self.maxSubLimit - (distanceFromSurface/self.radius), 2)
+        subLimit = math.max(subLimit, self.maxSubLimit)
+        self.currentSubLimit = subLimit
 
         --Calculate the appropriate resolution of all the nodes
         for _, node in pairs(self.quadtree) do
-            --self.performanceQueue:AddNodeToResolutionQueue(node, viewCFrame, position)
             self:CalculateNodeResolution(node, viewCFrame, position)
         end
 
