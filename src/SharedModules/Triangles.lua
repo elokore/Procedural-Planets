@@ -5,12 +5,11 @@ wedge.Anchored = true;
 wedge.TopSurface = Enum.SurfaceType.Smooth;
 wedge.BottomSurface = Enum.SurfaceType.Smooth;
 wedge.CanTouch = false
-
+wedge.CastShadow = false
 
 
 --Triangle function by EgoMoose
 function draw3dTriangle(a, b, c, parent, w1, w2)
-	
 	if not w1 then
 		w1 = wedge:Clone()
 	end

@@ -37,6 +37,7 @@ function Node.new(topLeftVerticeID, topRightVerticeID, bottomRightVerticeID, bot
     self.childNode4 = nil
 
     self.renderedFace = nil
+    self.waterRendered = false
 
     return self
 end
@@ -48,30 +49,6 @@ end
 ---@return integer
 function Node:GetVerticeIDs()
     return self.topLeftVerticeID, self.topRightVerticeID, self.bottomRightVerticeID, self.bottomLeftVerticeID
-end
-
---[[
-    Gets the depth of the node
-]]
----@return integer
-function Node:GetNodeDepth()
-    return self.depth
-end
-
---[[
-    Gets the rendered face of this node if it exists
-]]
----@return Model
-function Node:GetFace()
-    return self.renderedFace
-end
-
---[[
-    Gets the parent of this node
-]]
----@return Node
-function Node:GetParentNode()
-    return self.parentNode
 end
 
 --[[
@@ -92,6 +69,46 @@ function Node:RenderFace(reusableFace)
     local v1, v2, v3, v4 = self.planet.vertices[n1], self.planet.vertices[n2], self.planet.vertices[n3], self.planet.vertices[n4]
 
     self.renderedFace = triangles.fillQuadrant(v1, v2, v3, v4, reusableFace)
+    local nodeHeight = self.nodePosition.Magnitude - self.planet.radius
+    local face = self.renderedFace
+
+
+    if nodeHeight > 100 then
+        face.Triangle1.Color = Color3.new(0.286274, 0.286274, 0.286274)
+        face.Triangle2.Color = Color3.new(0.286274, 0.286274, 0.286274)
+        face.Triangle3.Color = Color3.new(0.286274, 0.286274, 0.286274)
+        face.Triangle4.Color = Color3.new(0.286274, 0.286274, 0.286274)
+    elseif nodeHeight <= 45 then
+        face.Triangle1.Color = Color3.fromRGB(149, 121, 119)
+        face.Triangle2.Color = Color3.fromRGB(149, 121, 119)
+        face.Triangle3.Color = Color3.fromRGB(149, 121, 119)
+        face.Triangle4.Color = Color3.fromRGB(149, 121, 119)
+    elseif nodeHeight > 45 and nodeHeight <= 50 then
+        face.Triangle1.Color = Color3.fromRGB(253, 234, 141)
+        face.Triangle2.Color = Color3.fromRGB(253, 234, 141)
+        face.Triangle3.Color = Color3.fromRGB(253, 234, 141)
+        face.Triangle4.Color = Color3.fromRGB(253, 234, 141)
+    end
+
+    if not self.renderedWater and nodeHeight < 45 then
+        self.renderedWater = true
+        
+        v1 = v1.Unit * (self.planet.radius + 45)
+        v2 = v2.Unit * (self.planet.radius + 45)
+        v3 = v3.Unit * (self.planet.radius + 45)
+        v4 = v4.Unit * (self.planet.radius + 45)
+
+        local pos = (v1+v2+v3+v4)/4
+
+        local length = (v1-v3).Magnitude
+        local width = (v1-v2).Magnitude
+        local height = 45
+
+        local cframe = CFrame.new(pos, pos+pos.Unit) *CFrame.new(0, 0, 45/2)
+        local size = Vector3.new(length, width, height)
+        workspace.Terrain:FillBlock(cframe, size, Enum.Material.Water)
+    end
+
     return self.renderedFace
 end
 
@@ -102,27 +119,29 @@ end
 function Node:Subdivide()
     --Get the position of the four vertices of this node
     local planet = self.planet
-    local noiseFilter = self.planet.noiseFilter
+    local noiseFilter = self.planet.planetNoise
     local topLeftPosition = planet.vertices[self.topLeftVerticeID]
     local topRightPosition = planet.vertices[self.topRightVerticeID]
     local bottomRightPosition = planet.vertices[self.bottomRightVerticeID]
     local bottomLeftPosition = planet.vertices[self.bottomLeftVerticeID]
+    local radius = planet.radius
+
 
     --Calculate positions of new vertices and then project it onto a sphere
     local topMiddlePosition = ((topLeftPosition + topRightPosition)/2)
-    topMiddlePosition = topMiddlePosition.Unit * (self.planet.radius + noiseFilter:EvaluateNoise(topMiddlePosition.Unit * planet.radius))
+    topMiddlePosition = topMiddlePosition.Unit * (radius + noiseFilter:EvaluateNoise(topMiddlePosition.Unit * radius))
 
     local rightMiddlePosition = ((topRightPosition + bottomRightPosition)/2)
-    rightMiddlePosition = rightMiddlePosition.Unit * (self.planet.radius + noiseFilter:EvaluateNoise(rightMiddlePosition.Unit * planet.radius))
+    rightMiddlePosition = rightMiddlePosition.Unit * (radius + noiseFilter:EvaluateNoise(rightMiddlePosition.Unit * radius))
 
     local bottomMiddlePosition = ((bottomLeftPosition + bottomRightPosition)/2)
-    bottomMiddlePosition = bottomMiddlePosition.Unit * (self.planet.radius + noiseFilter:EvaluateNoise(bottomMiddlePosition.Unit * planet.radius))
+    bottomMiddlePosition = bottomMiddlePosition.Unit * (radius + noiseFilter:EvaluateNoise(bottomMiddlePosition.Unit * radius))
 
     local leftMiddlePosition = ((topLeftPosition + bottomLeftPosition)/2)
-    leftMiddlePosition = leftMiddlePosition.Unit * (self.planet.radius + noiseFilter:EvaluateNoise(leftMiddlePosition.Unit * planet.radius))
+    leftMiddlePosition = leftMiddlePosition.Unit * (radius + noiseFilter:EvaluateNoise(leftMiddlePosition.Unit * radius))
 
     local centerPosition = ((topLeftPosition + topRightPosition + bottomRightPosition + bottomLeftPosition)/4)
-    centerPosition = centerPosition.Unit * (self.planet.radius + noiseFilter:EvaluateNoise(centerPosition.Unit * planet.radius))
+    centerPosition = centerPosition.Unit * (radius + noiseFilter:EvaluateNoise(centerPosition.Unit * radius))
 
     --Add vertices to the planet
     local topMiddleVerticeID = planet.positionToVerticeID[topMiddlePosition] or planet.nextVerticeID

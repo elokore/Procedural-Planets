@@ -1,5 +1,9 @@
 {
     "Lua.diagnostics.ignore": [
-        "fillQuadrant"
+        "fillQuadrant",
+        "ConnectParallel"
+    ],
+    "Lua.diagnostics.globals": [
+        "task"
     ]
 }

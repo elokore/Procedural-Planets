@@ -4,7 +4,7 @@ Planet.__index = Planet
 ---- < Module Imports > ----
 local Node = require(game.ReplicatedStorage.SharedModules.Generation2.Node)
 local triangles = require(game.ReplicatedStorage.SharedModules.Triangles)
-local NoiseFilter = require(game.ReplicatedStorage.SharedModules.Generation2.NoiseFilter)
+local PlanetNoise = require(game.ReplicatedStorage.SharedModules.Generation2.PlanetNoise)
 local RenderOperation = require(game.ReplicatedStorage.SharedModules.Generation2.RenderOperation)
 
 ---@class Planet
@@ -19,14 +19,11 @@ function Planet.new(cframe, radius)
         end
     }
 
-    self.noiseFilter = NoiseFilter.new()
-    self.noiseFilter.scale = 200
-    self.noiseFilter.minimum = 0
-    self.noiseFilter.roughness = 0.005
+    self.planetNoise = PlanetNoise.new(self)
 
     self.cframe = cframe
     self.radius = radius
-    self.maxSubLimit = 8
+    self.maxSubLimit = 6
     self.currentSubLimit = self.maxSubLimit
 
     self.vertices = setmetatable({}, verticeListMetatable)
@@ -70,7 +67,6 @@ function Planet:GeneratePlanetCube()
     local topBackLeftVerticeID = self.nextVerticeID
     self.vertices[self.nextVerticeID] = topBackLeftPosition
     self.positionToVerticeID[topBackLeftPosition] = topBackLeftVerticeID
-
 
     --Bottom 4 vertices
     local bottomFrontLeftPosition = (CFrame.new(Vector3.new(), Vector3.new(-1, -1, 1)) *CFrame.new(0, 0, -self.radius)).Position
@@ -209,7 +205,6 @@ function Planet:CalculateNodeResolution(node, viewCFrame, targetPosition)
     end
 end
 
-
 --[[
     adjusts the quadtree to increase in resolution depending on where the given position is
 ]]
@@ -220,17 +215,22 @@ function Planet:LOD(position)
 
         local posDirection = (position - self.cframe.Position).Unit
         local distanceFromSurface = (position - self.cframe.Position).Magnitude - self.radius
-        local viewCFrame = CFrame.new(self.cframe.Position + posDirection * (self.radius - ((self.radius*25)^0.5 + (distanceFromSurface*100)^0.5)), self.cframe.Position + posDirection * self.radius)
+        local viewCFrame = CFrame.new(self.cframe.Position + posDirection * (self.radius - ((self.radius*30)^0.5 + (distanceFromSurface*150)^0.5)), self.cframe.Position + posDirection * self.radius)
 
         local subLimit = math.min(self.maxSubLimit - (distanceFromSurface/self.radius), 2)
         subLimit = math.max(subLimit, self.maxSubLimit)
         self.currentSubLimit = subLimit
+
+        local s = os.clock()
 
         --Calculate the appropriate resolution of all the nodes
         for _, node in pairs(self.quadtree) do
             self:CalculateNodeResolution(node, viewCFrame, position)
         end
 
+        local e = os.clock()
+        --print("Time:", e-s)
+        
         self.currentRenderOperation:BeginOperation()
     end
 end

@@ -110,7 +110,7 @@ function RenderOperation:BeginOperation()
     --local num = math.ceil(#self.nodesToRender/2)
 
     self.frameEvent = runService.Heartbeat:Connect(function(delta)
-        local nodeCountToRender = math.min(50, self.renderListLength)
+        local nodeCountToRender = math.min(35, self.renderListLength)
 
         --Render x amount of faces
         for x = 1, nodeCountToRender do

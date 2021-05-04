@@ -1,10 +1,13 @@
+local plr = game.Players.LocalPlayer
+
+plr.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid").WalkSpeed = 100
+end)
+
 local Planet = require(game.ReplicatedStorage.SharedModules.Generation2.Planet)
 
-
-
-workspace:WaitForChild("Elocore")
 local p = Planet.new(CFrame.new(0, 0, 0), 2000)
-local lastPosition = workspace.Elocore.PrimaryPart.Position
+local lastPosition = workspace.CurrentCamera.CFrame.Position
 
 game:GetService("RunService").Heartbeat:Connect(function(delta)
     local currentPos = workspace.CurrentCamera.CFrame.Position
